@@ -7,7 +7,7 @@ const UploadDocument = () => {
    const session = rawSession ? JSON.parse(rawSession) : null;
 
 
-  console.log("Loaded session:", session);
+  console.log("session:", session);
 
   const [doc, setDoc] = useState({
     major_head: "",
