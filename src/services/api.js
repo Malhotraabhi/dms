@@ -1,6 +1,5 @@
 const API_BASE = "https://apis.allsoft.co/api/documentManagement";
 
-
 export async function sendOtp(mobile_number) {
   const res = await fetch(`${API_BASE}/generateOTP`, {
     method: "POST",
@@ -19,12 +18,8 @@ export async function verifyOtp(mobile_number, otp) {
   return res.json();
 }
 
-
-
 export async function uploadDocument(formData, session) {
   try {
-    console.log(session);
-    
     if (!session?.token || !session?.user_id) {
       throw new Error("Missing token or user_id in session");
     }
@@ -32,19 +27,17 @@ export async function uploadDocument(formData, session) {
     const res = await fetch(`${API_BASE}/saveDocumentEntry`, {
       method: "POST",
       headers: {
-        token: session.token,    
-        user_id: session.user_id 
+        token: session.token,
+        user_id: session.user_id,
       },
       body: formData,
     });
 
     return await res.json();
   } catch (error) {
-    console.error("❌ Upload error:", error.message);
     return { status: false, message: error.message };
   }
 }
-
 
 export async function searchDocuments(body, token) {
   try {
@@ -52,25 +45,21 @@ export async function searchDocuments(body, token) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        token: token,
+        token,
       },
       body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      throw new Error(`❌ API failed with status ${res.status}`);
+      const errText = await res.text();
+      throw new Error(`API failed: ${res.status} ${errText}`);
     }
 
-    const data = await res.json();
-    console.log("📌 Search API response:", data); // ✅ debug log
-    return data;
-  } catch (err) {
-    console.error("❌ searchDocuments error:", err);
+    return await res.json();
+  } catch {
     return { status: false, data: [] };
   }
 }
-
-
 
 export async function getDocumentTags(token, term = "") {
   const res = await fetch(`${API_BASE}/documentTags`, {
@@ -88,5 +77,3 @@ export async function getDocumentTags(token, term = "") {
 
   return res.json();
 }
-
-

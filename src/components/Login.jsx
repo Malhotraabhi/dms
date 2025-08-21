@@ -21,22 +21,13 @@ const Login = ({ onLogin }) => {
   const handleVerifyOtp = async () => {
     const res = await verifyOtp(mobile, otp);
     if (res.status) {
-      console.log("✅ OTP Verified, Full Response:", res);
-
       const { token, user_id, user_name } = res.data;
 
-      // store token + user info in sessionStorage
       sessionStorage.setItem(
         "auth",
-        JSON.stringify({
-          mobile_number: mobile,
-          token,
-          user_id,
-          user_name,
-        })
+        JSON.stringify({ mobile_number: mobile, token, user_id, user_name })
       );
 
-      // also update app state
       onLogin({ mobile_number: mobile, token, user_id, user_name });
     } else {
       setError(res.data || "Invalid OTP, try again.");
@@ -44,34 +35,48 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="card shadow-sm p-4">
-      <h4 className="mb-3 text-center">Login with OTP</h4>
-      <input
-        type="text"
-        className="form-control mb-2"
-        placeholder="Enter Mobile Number"
-        value={mobile}
-        onChange={(e) => setMobile(e.target.value)}
-      />
-      {!otpSent ? (
-        <button className="btn btn-primary w-100" onClick={handleSendOtp}>
-          Send OTP
-        </button>
-      ) : (
-        <>
-          <input
-            type="text"
-            className="form-control mb-2"
-            placeholder="Enter OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-          />
-          <button className="btn btn-success w-100" onClick={handleVerifyOtp}>
-            Verify OTP
+    <div className="login-wrapper">
+      <div className="login-card shadow-lg">
+        <h2 className="text-center text-gradient mb-2">Welcome Back 👋</h2>
+        <p className="text-center text-muted mb-4">
+          Sign in with your mobile number to continue
+        </p>
+
+        <input
+          type="text"
+          className="form-control input-animated mb-3"
+          placeholder="📱 Mobile Number"
+          value={mobile}
+          onChange={(e) => setMobile(e.target.value)}
+        />
+
+        {!otpSent ? (
+          <button
+            className="btn btn-gradient w-100 mb-3"
+            onClick={handleSendOtp}
+          >
+            Send OTP
           </button>
-        </>
-      )}
-      {error && <p className="text-danger mt-2">{error}</p>}
+        ) : (
+          <>
+            <input
+              type="text"
+              className="form-control input-animated mb-3"
+              placeholder="🔑 Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+            />
+            <button
+              className="btn btn-gradient w-100 mb-3"
+              onClick={handleVerifyOtp}
+            >
+              Verify OTP ✅
+            </button>
+          </>
+        )}
+
+        {error && <p className="text-danger text-center">{error}</p>}
+      </div>
     </div>
   );
 };
