@@ -11,8 +11,8 @@ const SearchDocuments = ({ token }) => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  // minor head options
   const minorOptions =
     majorHead === "Personal"
       ? ["John", "Tom", "Emily"]
@@ -20,167 +20,209 @@ const SearchDocuments = ({ token }) => {
       ? ["Accounts", "HR", "IT", "Finance"]
       : [];
 
-  // 🔍 handle search
   const handleSearch = async () => {
     const body = {
-      major_head: majorHead,
-      minor_head: minorHead,
-      from_date: fromDate,
-      to_date: toDate,
+      major_head: majorHead || "",
+      minor_head: minorHead || "",
+      from_date: fromDate || "",
+      to_date: toDate || "",
       tags: tag ? [{ tag_name: tag }] : [],
       uploaded_by: "",
       start: 0,
       length: 10,
       filterId: "",
-      search: { value: query },
+      search: { value: query || "" },
     };
 
-    console.log("📤 Sending search request:", body);
-
-    const res = await searchDocuments(body, token);
-    console.log("📥 API Response:", res);
-
-    if (res.status && Array.isArray(res.data)) {
-      setResults(res.data);
-    } else {
-      console.warn("⚠️ No data found", res);
+    setLoading(true);
+    try {
+      const res = await searchDocuments(body, token);
+      setResults(res.status && Array.isArray(res.data) ? res.data : []);
+    } catch {
       setResults([]);
     }
+    setLoading(false);
   };
 
-  // ⬇️ Download single file
-  const handleDownload = (file) => {
-    if (!file.file_url) {
-      alert("File URL missing");
-      return;
+  const handleDownload = async (file) => {
+    if (!file.file_url) return alert("File URL missing");
+    try {
+      const response = await fetch(file.file_url);
+      if (!response.ok) throw new Error("Download failed");
+      const blob = await response.blob();
+      const filename = file.file_url.split("/").pop().split("?")[0];
+      saveAs(blob, filename);
+    } catch {
+      alert("Failed to download file.");
     }
-    saveAs(file.file_url, file.file_name || "document");
   };
 
-  // ⬇️ Download all as ZIP
   const handleDownloadAll = async () => {
-    if (results.length === 0) return;
-
+    if (!results.length) return;
     const zip = new JSZip();
+
     for (let file of results) {
       try {
         const response = await fetch(file.file_url);
+        if (!response.ok) continue;
         const blob = await response.blob();
-        zip.file(file.file_name || "document", blob);
-      } catch (err) {
-        console.error("❌ Error fetching file:", file, err);
-      }
+        const filename = file.file_url.split("/").pop().split("?")[0];
+        zip.file(filename, blob);
+      } catch {}
     }
+
     const content = await zip.generateAsync({ type: "blob" });
     saveAs(content, "all_documents.zip");
   };
 
-  // 👀 File preview
   const renderPreview = (doc) => {
-    if (!doc.file_url) return <p>⚠️ No preview available.</p>;
-    if (doc.file_type === "pdf") {
+    if (!doc.file_url) return <p className="text-muted">⚠️ No preview available.</p>;
+
+    const ext = doc.file_url.split(".").pop().split("?")[0].toLowerCase();
+
+    if (["jpg", "jpeg", "png", "gif"].includes(ext)) {
       return (
-        <iframe
+        <img
           src={doc.file_url}
-          title={doc.file_name}
-          width="100%"
-          height="200px"
+          alt={doc.document_remarks || "Image Document"}
+          className="img-fluid rounded shadow-sm"
+          style={{ maxHeight: "200px" }}
         />
       );
-    } else if (doc.file_type === "image") {
-      return <img src={doc.file_url} alt={doc.file_name} width="200px" />;
     } else {
-      return <p>❌ Preview not supported for this type.</p>;
+      return (
+        <p className="text-muted">❌ Preview not supported. Use the View button.</p>
+      );
     }
   };
 
+  const getFileName = (doc) =>
+    doc.file_name || doc.file_url.split("/").pop().split("?")[0];
+
   return (
-    <div className="card shadow-sm p-4 mt-3">
-      <h5>🔍 Search Documents</h5>
+    <div className="card shadow-lg border-0 mt-4">
+      <div className="card-body">
+        <h4 className="mb-4 fw-bold text-primary">🔍 Search Documents</h4>
 
-      {/* search filters */}
-      <input
-        type="text"
-        className="form-control mb-2"
-        placeholder="Search by name/owner"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-
-      <select
-        className="form-control mb-2"
-        value={majorHead}
-        onChange={(e) => setMajorHead(e.target.value)}
-      >
-        <option value="">Select Category</option>
-        <option value="Personal">Personal</option>
-        <option value="Professional">Professional</option>
-      </select>
-
-      <select
-        className="form-control mb-2"
-        value={minorHead}
-        onChange={(e) => setMinorHead(e.target.value)}
-        disabled={!majorHead}
-      >
-        <option value="">Select {majorHead || "Minor Head"}</option>
-        {minorOptions.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-
-      <input
-        type="text"
-        className="form-control mb-2"
-        placeholder="Tag"
-        value={tag}
-        onChange={(e) => setTag(e.target.value)}
-      />
-
-      <input
-        type="date"
-        className="form-control mb-2"
-        value={fromDate}
-        onChange={(e) => setFromDate(e.target.value)}
-      />
-
-      <input
-        type="date"
-        className="form-control mb-2"
-        value={toDate}
-        onChange={(e) => setToDate(e.target.value)}
-      />
-
-      <button className="btn btn-secondary mb-2 w-100" onClick={handleSearch}>
-        Search
-      </button>
-
-      {/* results */}
-      {results.length > 0 && (
-        <div className="mt-3">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h6>📂 Results ({results.length})</h6>
-            <button className="btn btn-success" onClick={handleDownloadAll}>
-              ⬇️ Download All as ZIP
+        <div className="row g-3 mb-3">
+          <div className="col-md-6">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search by name/owner"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <div className="col-md-3">
+            <select
+              className="form-select"
+              value={majorHead}
+              onChange={(e) => setMajorHead(e.target.value)}
+            >
+              <option value="">Select Category</option>
+              <option value="Personal">Personal</option>
+              <option value="Professional">Professional</option>
+            </select>
+          </div>
+          <div className="col-md-3">
+            <select
+              className="form-select"
+              value={minorHead}
+              onChange={(e) => setMinorHead(e.target.value)}
+              disabled={!majorHead}
+            >
+              <option value="">Select {majorHead || "Minor Head"}</option>
+              {minorOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-md-3">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Tag"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+            />
+          </div>
+          <div className="col-md-3">
+            <input
+              type="date"
+              className="form-control"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+          </div>
+          <div className="col-md-3">
+            <input
+              type="date"
+              className="form-control"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+          </div>
+          <div className="col-md-3">
+            <button
+              className="btn btn-primary w-100"
+              onClick={handleSearch}
+              disabled={loading}
+            >
+              {loading ? "Searching..." : "Search"}
             </button>
           </div>
+        </div>
 
-          {results.map((doc, idx) => (
-            <div key={idx} className="border rounded p-2 mb-2">
-              <strong>{doc.file_name || "Untitled Document"}</strong>
-              {renderPreview(doc)}
-              <button
-                className="btn btn-sm btn-primary mt-2"
-                onClick={() => handleDownload(doc)}
-              >
-                ⬇️ Download
+        {results.length > 0 && (
+          <div className="mt-4">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h5 className="fw-semibold">📂 Results ({results.length})</h5>
+              <button className="btn btn-success" onClick={handleDownloadAll}>
+                ⬇️ Download All as ZIP
               </button>
             </div>
-          ))}
-        </div>
-      )}
+
+            <div className="row g-3">
+              {results.map((doc, idx) => (
+                <div key={idx} className="col-md-6">
+                  <div className="card shadow-sm border-0 h-100">
+                    <div className="card-body">
+                      <h6 className="fw-bold">{getFileName(doc)}</h6>
+                      {renderPreview(doc)}
+
+                      <div className="mt-2">
+                        <button
+                          className="btn btn-sm btn-outline-primary me-2"
+                          onClick={() => handleDownload(doc)}
+                        >
+                          ⬇️ Download
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => window.open(doc.file_url, "_blank")}
+                        >
+                          👁️ View
+                        </button>
+                      </div>
+
+                      <p className="text-muted mt-2">
+                        Uploaded by: {doc.uploaded_by} | Remarks: {doc.document_remarks}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && results.length === 0 && (
+          <p className="text-muted mt-3">No documents found. Try different filters.</p>
+        )}
+      </div>
     </div>
   );
 };
